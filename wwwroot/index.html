@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attack Surface Mapper</title>
+<link rel="stylesheet" href="app.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <nav class="nav">
+      <button type="button" class="ghost" id="navBack" title="Προηγούμενη σελίδα (Alt+←)">← Πίσω</button>
+      <button type="button" class="ghost" id="navFwd" title="Επόμενη σελίδα (Alt+→)">Μπροστά →</button>
+      <button type="button" class="ghost" id="navHome">⌂ Αρχική</button>
+    </nav>
+    <h1>🛰️ Attack Surface Mapper</h1>
+    <p class="sub">OSINT και χαρτογράφηση του attack surface ενός domain: subdomains, IPs, δίκτυα, certificates, τεχνολογίες, repos.</p>
+  </header>
+
+  <!-- Αρχική: νέο scan + ιστορικό -->
+  <main id="home" hidden>
+    <section class="card">
+      <form id="form">
+        <div class="row">
+          <input type="text" id="target" placeholder="example.com" required autocomplete="off">
+          <button type="submit" id="startBtn">Έναρξη scan</button>
+        </div>
+
+        <fieldset class="levels">
+          <label class="level">
+            <input type="radio" name="level" value="passive" checked>
+            <span><b>Passive</b>: μόνο δημόσιες πηγές (DNS, certificate logs, RDAP, RIPEstat, GitHub). Ο στόχος δεν βλέπει τίποτα.</span>
+          </label>
+          <label class="level">
+            <input type="radio" name="level" value="footprint">
+            <span><b>Footprint</b>: επιπλέον επισκέπτεται τα sites όπως ένας browser (TLS certificates, headers, τεχνολογίες). Φαίνεται στα logs του στόχου.</span>
+          </label>
+        </fieldset>
+
+        <label class="auth" id="authRow" hidden>
+          <input type="checkbox" id="authorized">
+          <span>Επιβεβαιώνω ότι ο στόχος είναι δικός μου ή ότι έχω άδεια να τον σκανάρω.</span>
+        </label>
+
+        <label class="opt">
+          <input type="checkbox" id="gitleaks">
+          <span>Σκανάρισμα των GitHub repos του οργανισμού για secrets με το Gitleaks Scanner <span id="glStatus" class="muted"></span></span>
+        </label>
+
+        <details>
+          <summary>Modules</summary>
+          <div id="modules" class="modules"></div>
+        </details>
+        <div id="formError" class="err"></div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Ιστορικό</h2>
+      <div id="history"></div>
+    </section>
+  </main>
+
+  <!-- Σελίδα ενός scan -->
+  <main id="scanPage" hidden>
+    <section class="card">
+      <div class="scan-head">
+        <div>
+          <div class="target" id="scanTarget"></div>
+          <div class="muted" id="scanMeta"></div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" id="stopBtn" hidden>■ Stop</button>
+          <button type="button" class="ghost" id="rescanBtn">↻ Rescan</button>
+          <button type="button" class="ghost" id="exportJson">⬇ JSON</button>
+          <button type="button" class="ghost" id="exportCsv">⬇ CSV</button>
+          <button type="button" class="ghost" id="deleteBtn" title="Διαγραφή">🗑</button>
+        </div>
+      </div>
+      <div class="stats" id="stats"></div>
+      <div class="tabs" role="tablist">
+        <button type="button" data-tab="graph" class="active">Γράφος</button>
+        <button type="button" data-tab="issues">Ευρήματα <span id="issueBadge" class="badge"></span></button>
+        <button type="button" data-tab="data">Δεδομένα</button>
+        <button type="button" data-tab="log">Log</button>
+      </div>
+    </section>
+
+    <section class="card tab" id="tab-graph">
+      <div class="graph-tools">
+        <div id="legend" class="legend"></div>
+        <button type="button" class="ghost small" id="relayout">⟳ Αναδιάταξη</button>
+        <button type="button" class="ghost small" id="fit">⤢ Fit</button>
+      </div>
+      <div class="graph-wrap">
+        <div id="cy"></div>
+        <aside id="details" class="details" hidden></aside>
+      </div>
+    </section>
+
+    <section class="card tab" id="tab-issues" hidden><div id="issues"></div></section>
+
+    <section class="card tab" id="tab-data" hidden>
+      <input type="text" id="dataFilter" placeholder="Φίλτρο…" class="filter">
+      <div id="data"></div>
+    </section>
+
+    <section class="card tab" id="tab-log" hidden><div id="log" class="log"></div></section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
