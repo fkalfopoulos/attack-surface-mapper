@@ -11,7 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseUrls("http://localhost:5090");
 builder.Configuration["AllowedHosts"] = "localhost";
 
-var dataDir = Path.Combine(builder.Environment.ContentRootPath, "data");
+// Η βάση μπαίνει στο appdata/ (όχι "data/"): σε macOS/Windows τα ονόματα δεν ξεχωρίζουν
+// κεφαλαία-πεζά, και ένα "data/" στο .gitignore θα έκρυβε και τον φάκελο κώδικα Data/.
+var dataDir = Path.Combine(builder.Environment.ContentRootPath, "appdata");
 Directory.CreateDirectory(dataDir);
 var store = new Store(Path.Combine(dataDir, "surface.db"));
 store.Init();
