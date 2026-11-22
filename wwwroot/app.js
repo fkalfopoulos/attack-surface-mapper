@@ -12,7 +12,11 @@ let TYPES = {};     // τύπος → { label, group }
 let MODULES = [];   // τα διαθέσιμα modules
 
 /** Η κατάσταση της σελίδας ενός scan. */
-const state = { id: null, scan: null, running: false, events: [], edges: [], byId: new Map(), cy: null, timer: null, hidden: new Set() };
+const state = {
+  id: null, scan: null, running: false, events: [], edges: [], byId: new Map(), cy: null, timer: null, hidden: new Set(),
+  /** Η σύγκριση με το προηγούμενο scan: { previousScanId, newIds, removed }. */
+  diff: null, newIds: new Set()
+};
 
 /**
  * Κάνει escape σε κείμενο για ασφαλή εισαγωγή σε HTML (προστασία από XSS: τα δεδομένα έρχονται από τρίτους).
@@ -245,10 +249,13 @@ async function refresh() {
   state.events = graph.events;
   state.edges = graph.edges;
   state.byId = new Map(graph.events.map(e => [e.id, e]));
+  state.diff = graph.diff;
+  state.newIds = new Set(graph.diff.newIds);
 
   renderHeader(summary);
   if (changed || !state.cy) renderGraph();
   renderIssues();
+  renderChanges();
   renderData();
   renderLog();
 
@@ -278,8 +285,13 @@ function renderHeader({ scan, running, counts }) {
     ["Repos", c("CODE_REPOSITORY")],
     ["Ευρήματα", scan.issueCount],
   ];
+  if (state.diff?.previousScanId != null) {
+    stats.push(["Νέα από #" + state.diff.previousScanId, state.newIds.size]);
+    if (state.diff.removed) stats.push(["Εξαφανίστηκαν", state.diff.removed.length]);
+  }
   $("stats").innerHTML = stats.map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
   $("issueBadge").textContent = scan.issueCount || "";
+  $("changeBadge").textContent = state.newIds.size || "";
 }
 
 /** Αλλάζει καρτέλα (γράφος, ευρήματα, δεδομένα, log). */
@@ -296,7 +308,10 @@ document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click
 function renderGraph() {
   const elements = [
     ...state.events.map(e => ({
-      data: { id: String(e.id), label: shortLabel(e), group: typeGroup(e.type), risk: e.risk ?? "", root: e.parentId == null ? 1 : 0 }
+      data: {
+        id: String(e.id), label: shortLabel(e), group: typeGroup(e.type), risk: e.risk ?? "",
+        root: e.parentId == null ? 1 : 0, isnew: state.newIds.has(e.id) ? 1 : 0
+      }
     })),
     ...state.edges
       .filter(x => state.byId.has(x.from) && state.byId.has(x.to))
@@ -317,7 +332,7 @@ function renderGraph() {
     state.cy.add(elements.filter(el => !existing.has(el.data.id)));
     state.cy.nodes().forEach(n => {
       const e = state.byId.get(+n.id());
-      if (e) n.data("risk", e.risk ?? "");
+      if (e) { n.data("risk", e.risk ?? ""); n.data("isnew", state.newIds.has(e.id) ? 1 : 0); }
     });
   }
   applyHidden();
@@ -354,6 +369,8 @@ function graphStyle() {
     { selector: "node[risk = 'high']", style: { "border-width": 3, "border-color": "#d92d20" } },
     { selector: "node[risk = 'medium']", style: { "border-width": 3, "border-color": "#dc6803" } },
     { selector: "node[risk = 'low']", style: { "border-width": 2, "border-color": "#ca8a04" } },
+    // Νέοι κόμβοι από το προηγούμενο scan: πράσινο "φωτοστέφανο" (δεν επηρεάζει το περίγραμμα κινδύνου).
+    { selector: "node[isnew = 1]", style: { "underlay-color": "#12b76a", "underlay-opacity": 0.45, "underlay-padding": 5, "underlay-shape": "ellipse" } },
     { selector: "node:selected", style: { "overlay-color": "#2f6fed", "overlay-opacity": 0.25, "overlay-padding": 6 } },
     { selector: "edge", style: { width: 1, "line-color": border, "curve-style": "haystack", opacity: 0.8 } },
     { selector: ".hidden", style: { display: "none" } },
@@ -421,7 +438,7 @@ function showDetails(id) {
   $("details").hidden = false;
   $("details").innerHTML = `
     <button class="ghost small close" type="button">✕</button>
-    <div><b>${esc(typeLabel(e.type))}</b> ${riskBadge(e.risk)}</div>
+    <div><b>${esc(typeLabel(e.type))}</b> ${riskBadge(e.risk)} ${state.newIds.has(e.id) ? `<span class="tag-new">νέο</span>` : ""}</div>
     <div class="val">${esc(e.data)}</div>
     ${e.link ? `<div><a href="${esc(e.link)}" target="_blank" rel="noopener">Άνοιγμα ↗</a></div>` : ""}
     <div class="muted" style="font-size:12px">module: ${esc(e.module)} · <code>${esc(e.type)}</code></div>
@@ -474,6 +491,58 @@ $("issues").addEventListener("click", e => {
   if (a) { e.preventDefault(); focusNode(+a.dataset.node); }
 });
 
+/**
+ * Ομαδοποιεί events ανά τύπο, με τη σειρά των τύπων του API.
+ * @param {object[]} events Τα events.
+ * @returns {[string, object[]][]} Ζεύγη (τύπος, events).
+ */
+function groupByType(events) {
+  const order = Object.keys(TYPES);
+  const map = new Map();
+  for (const e of events) {
+    if (!map.has(e.type)) map.set(e.type, []);
+    map.get(e.type).push(e);
+  }
+  return [...map.entries()].sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
+}
+
+/**
+ * Ζωγραφίζει τις αλλαγές σε σχέση με το προηγούμενο scan: τι εμφανίστηκε και τι εξαφανίστηκε.
+ * Τα νέα δεδομένα είναι συχνά τα πιο σημαντικά (π.χ. ένα subdomain που στήθηκε χθες).
+ */
+function renderChanges() {
+  const d = state.diff;
+  if (d?.previousScanId == null) {
+    $("changes").innerHTML = `<div class="empty">Πρώτο ολοκληρωμένο scan για ${esc(state.scan.target)} σε αυτό το επίπεδο.<br>
+      Κάνε ↻ Rescan αργότερα για να δεις τι άλλαξε.</div>`;
+    return;
+  }
+  const added = state.events.filter(e => state.newIds.has(e.id));
+  const section = (list, tag, clickable) => groupByType(list).map(([t, rows]) => `
+    <div class="change-group">
+      <h3>${tag} ${esc(typeLabel(t))} <span class="muted">(${rows.length})</span></h3>
+      <table>${rows.map(e => `<tr>
+        <td class="v">${esc(e.data)}</td><td class="m">${riskBadge(e.risk)}</td>
+        <td class="m">${clickable ? `<a href="#" data-node="${e.id}">γράφος</a>` : ""}</td></tr>`).join("")}</table>
+    </div>`).join("");
+
+  $("changes").innerHTML = `
+    <div class="muted" style="margin-bottom:12px">Σύγκριση με το <a href="#/scan/${d.previousScanId}" data-scan="${d.previousScanId}">scan #${d.previousScanId}</a></div>
+    <h2>Νέα (${added.length})</h2>
+    ${added.length ? section(added, `<span class="tag-new">νέο</span>`, true) : `<div class="muted">Τίποτα νέο.</div>`}
+    <h2 style="margin-top:20px">Εξαφανίστηκαν (${d.removed?.length ?? "…"})</h2>
+    ${d.removed == null ? `<div class="muted">Θα φανούν όταν τελειώσει το scan.</div>`
+      : d.removed.length ? section(d.removed, `<span class="tag-gone">εξαφανίστηκε</span>`, false)
+      : `<div class="muted">Τίποτα δεν εξαφανίστηκε.</div>`}`;
+}
+
+$("changes").addEventListener("click", e => {
+  const scan = e.target.closest("a[data-scan]");
+  if (scan) { e.preventDefault(); navigate(`#/scan/${scan.dataset.scan}`); return; }
+  const a = e.target.closest("a[data-node]");
+  if (a) { e.preventDefault(); focusNode(+a.dataset.node); }
+});
+
 /** Ζωγραφίζει όλα τα δεδομένα, ομαδοποιημένα ανά τύπο, με φίλτρο αναζήτησης. */
 function renderData() {
   const q = $("dataFilter").value.toLowerCase();
@@ -493,7 +562,7 @@ function renderData() {
       <summary>${esc(typeLabel(t))} <span class="muted">(${rows.length})</span></summary>
       <table>${rows.map(e => `<tr>
         <td class="v">${e.link ? `<a href="${esc(e.link)}" target="_blank" rel="noopener">${esc(e.data)}</a>` : esc(e.data)}</td>
-        <td class="m">${riskBadge(e.risk)}</td>
+        <td class="m">${riskBadge(e.risk)} ${state.newIds.has(e.id) ? `<span class="tag-new">νέο</span>` : ""}</td>
         <td class="m"><a href="#" data-node="${e.id}">γράφος</a></td>
         <td class="m">${esc(e.module)}</td></tr>`).join("")}</table>
     </details>`;

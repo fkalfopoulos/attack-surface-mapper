@@ -13,4 +13,17 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
   </ItemGroup>
 
+  <!-- Τα tests είναι ξεχωριστό project μέσα στον φάκελο tests/: δεν μπαίνουν στο κύριο build. -->
+  <ItemGroup>
+    <Compile Remove="tests/**" />
+    <Content Remove="tests/**" />
+    <None Remove="tests/**" />
+    <EmbeddedResource Remove="tests/**" />
+  </ItemGroup>
+
+  <!-- Τα tests βλέπουν και τις internal κλάσεις (π.χ. τη μηχανή των scans). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AttackSurfaceMapper.Tests" />
+  </ItemGroup>
+
 </Project>

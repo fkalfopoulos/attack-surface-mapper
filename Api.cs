@@ -96,7 +96,7 @@ public static class Api
     /// </summary>
     /// <param name="raw">Το κείμενο του χρήστη (π.χ. "https://www.example.com/page").</param>
     /// <returns>Το domain (π.χ. "example.com"), ή <c>null</c> αν δεν είναι έγκυρο.</returns>
-    static string? ParseTarget(string? raw)
+    internal static string? ParseTarget(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return null;
         raw = raw.Trim();
@@ -105,7 +105,10 @@ public static class Api
         if (IPAddress.TryParse(raw, out _)) return null;
         var host = Scope.NormalizeHost(raw);
         if (host is null) return null;
-        return host.StartsWith("www.") && host.Count(c => c == '.') >= 2 ? host[4..] : host;
+        // "www.example.com" → "example.com", αλλά όχι "www.co.uk" → "co.uk" (που είναι κατάληξη, όχι domain).
+        return host.StartsWith("www.") && host.Count(c => c == '.') >= 2 && !Scope.IsSecondLevelSuffix(host[4..])
+            ? host[4..]
+            : host;
     }
 
     /// <summary>Επιστρέφει τη σύνοψη ενός scan και πόσα events βρέθηκαν από κάθε τύπο.</summary>
@@ -121,14 +124,22 @@ public static class Api
         return Results.Ok(new { scan, running = manager.IsRunning(id), counts });
     }
 
-    /// <summary>Επιστρέφει όλα τα events (κόμβους) και τις ακμές ενός scan, για τον γράφο και τους πίνακες.</summary>
+    /// <summary>
+    /// Επιστρέφει όλα τα events (κόμβους) και τις ακμές ενός scan, μαζί με τη σύγκριση
+    /// με το προηγούμενο scan του ίδιου στόχου.
+    /// </summary>
     /// <param name="id">Το id του scan.</param>
     /// <param name="store">Η βάση.</param>
-    /// <returns>Τα events και οι ακμές, ή 404 αν δεν υπάρχει το scan.</returns>
-    static IResult GetGraph(long id, Store store) =>
-        store.GetScan(id) is null
-            ? Results.NotFound()
-            : Results.Ok(new { events = store.GetEvents(id), edges = store.GetEdges(id) });
+    /// <param name="manager">Ο manager των scans.</param>
+    /// <returns>Events, ακμές και σύγκριση, ή 404 αν δεν υπάρχει το scan.</returns>
+    static IResult GetGraph(long id, Store store, ScanManager manager)
+    {
+        var scan = store.GetScan(id);
+        if (scan is null) return Results.NotFound();
+        var events = store.GetEvents(id);
+        var diff = ScanDiff.Compute(store, scan, events, manager.IsRunning(id));
+        return Results.Ok(new { events, edges = store.GetEdges(id), diff });
+    }
 
     /// <summary>Επιστρέφει το log ενός scan.</summary>
     /// <param name="id">Το id του scan.</param>

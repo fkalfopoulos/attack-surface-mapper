@@ -1,5 +1,7 @@
 # 🛰️ Attack Surface Mapper
 
+[![CI](https://github.com/fkalfopoulos/attack-surface-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/fkalfopoulos/attack-surface-mapper/actions/workflows/ci.yml)
+
 Τοπικό web app (ASP.NET Core / C#) για **OSINT** και **χαρτογράφηση του attack surface** ενός
 domain. Δίνεις ένα domain και το app βρίσκει subdomains, IPs, δίκτυα, certificates, τεχνολογίες,
 SaaS υπηρεσίες και GitHub repos, και τα δείχνει σε **γράφο** που εξηγεί πώς βρέθηκε το καθένα.
@@ -84,7 +86,31 @@ dotnet run
 | `Api.cs` | Τα HTTP endpoints |
 | `wwwroot/` | Το UI (γράφος με [Cytoscape.js](https://js.cytoscape.org)) |
 
+| `Data/ScanDiff.cs` | Σύγκριση με το προηγούμενο scan (νέα / εξαφανισμένα) |
+| `tests/` | Unit tests (xUnit) |
+
 Για νέο module, φτιάξε κλάση που υλοποιεί το `IModule` και πρόσθεσέ τη στο `Program.cs`.
+Κάθε method έχει XML documentation στα ελληνικά.
+
+## Σύγκριση scans
+
+Κάθε scan συγκρίνεται με το προηγούμενο ολοκληρωμένο scan του ίδιου στόχου, στο ίδιο επίπεδο.
+Η καρτέλα **Αλλαγές** δείχνει τι **εμφανίστηκε**, π.χ. ένα subdomain που στήθηκε χθες, και τι
+**εξαφανίστηκε**. Οι νέοι κόμβοι επισημαίνονται και στον γράφο.
+
+## Tests
+
+```bash
+dotnet test tests/AttackSurfaceMapper.Tests
+```
+
+Τα tests καλύπτουν το scope, την προστασία SSRF, τον έλεγχο του στόχου, τη σύγκριση scans
+και τη μηχανή με ψεύτικα modules (αλυσίδα events, dedupe, σφάλματα, ακύρωση), χωρίς
+πρόσβαση στο δίκτυο. Τρέχουν αυτόματα σε κάθε push μέσω GitHub Actions.
+
+## Άδεια
+
+[MIT](LICENSE). Η αρχιτεκτονική είναι εμπνευσμένη από το SpiderFoot (MIT, © Steve Micallef).
 
 ## Επόμενα βήματα
 

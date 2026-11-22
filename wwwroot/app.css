@@ -71,6 +71,11 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 .tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
 .badge { font-size: 11px; background: var(--danger); color: #fff; border-radius: 99px; padding: 0 7px; }
 .badge:empty { display: none; }
+.badge.new { background: var(--ok); }
+.tag-new { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 99px; background: var(--ok); color: #fff; }
+.tag-gone { font-size: 11px; font-weight: 700; padding: 0 7px; border-radius: 99px; background: var(--muted); color: #fff; }
+.change-group h3 { font-size: 15px; margin: 16px 0 6px; }
+.change-group:first-child h3 { margin-top: 0; }
 
 .graph-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }

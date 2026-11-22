@@ -83,6 +83,7 @@
       <div class="tabs" role="tablist">
         <button type="button" data-tab="graph" class="active">Γράφος</button>
         <button type="button" data-tab="issues">Ευρήματα <span id="issueBadge" class="badge"></span></button>
+        <button type="button" data-tab="changes">Αλλαγές <span id="changeBadge" class="badge new"></span></button>
         <button type="button" data-tab="data">Δεδομένα</button>
         <button type="button" data-tab="log">Log</button>
       </div>
@@ -101,6 +102,8 @@
     </section>
 
     <section class="card tab" id="tab-issues" hidden><div id="issues"></div></section>
+
+    <section class="card tab" id="tab-changes" hidden><div id="changes"></div></section>
 
     <section class="card tab" id="tab-data" hidden>
       <input type="text" id="dataFilter" placeholder="Φίλτρο…" class="filter">

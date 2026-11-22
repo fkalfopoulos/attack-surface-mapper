@@ -51,6 +51,14 @@ public static partial class Scope
     ];
 
     /// <summary>
+    /// Ελέγχει αν ένα όνομα είναι γνωστό TLD δεύτερου επιπέδου (π.χ. "co.uk", "com.gr"), δηλαδή
+    /// κατάληξη και όχι domain οργανισμού.
+    /// </summary>
+    /// <param name="name">Κανονικοποιημένο όνομα.</param>
+    /// <returns><c>true</c> αν είναι TLD δεύτερου επιπέδου.</returns>
+    public static bool IsSecondLevelSuffix(string name) => SecondLevel.Contains(name);
+
+    /// <summary>
     /// Βγάζει το πιθανό όνομα του οργανισμού από ένα domain, π.χ. "example" από "www.example.co.uk".
     /// Χρησιμοποιείται για την αναζήτηση του οργανισμού στο GitHub.
     /// </summary>
