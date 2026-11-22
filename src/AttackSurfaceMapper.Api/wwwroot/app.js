@@ -17,7 +17,9 @@ const state = {
   /** Η σύγκριση με το προηγούμενο scan: { previousScanId, newIds, removed }. */
   diff: null, newIds: new Set(),
   /** Τα συμπεράσματα των κανόνων συσχέτισης (μόνο σε ολοκληρωμένο scan). */
-  correlations: []
+  correlations: [],
+  /** Η κατηγορία του υπομνήματος στην οποία εστιάζει ο γράφος, ή null. */
+  focus: null
 };
 
 /**
@@ -227,7 +229,7 @@ function startScan(body) {
 async function openScan(id) {
   if (state.id !== id) {
     state.id = id;
-    state.events = []; state.edges = []; state.byId = new Map(); state.hidden.clear();
+    state.events = []; state.edges = []; state.byId = new Map(); state.hidden.clear(); state.focus = null;
     state.cy?.destroy(); state.cy = null;
     $("details").hidden = true;
     showTab("graph");
@@ -329,7 +331,7 @@ function renderGraph() {
       style: graphStyle(),
     });
     state.cy.on("tap", "node", ev => showDetails(+ev.target.id()));
-    state.cy.on("tap", ev => { if (ev.target === state.cy) $("details").hidden = true; });
+    state.cy.on("tap", ev => { if (ev.target === state.cy) { if (state.focus) clearFocus(); else $("details").hidden = true; } });
   } else {
     const existing = new Set(state.cy.elements().map(el => el.id()));
     state.cy.add(elements.filter(el => !existing.has(el.data.id)));
@@ -376,6 +378,7 @@ function graphStyle() {
     { selector: "node[isnew = 1]", style: { "underlay-color": "#12b76a", "underlay-opacity": 0.45, "underlay-padding": 5, "underlay-shape": "ellipse" } },
     { selector: "node:selected", style: { "overlay-color": "#2f6fed", "overlay-opacity": 0.25, "overlay-padding": 6 } },
     { selector: "edge", style: { width: 1, "line-color": border, "curve-style": "haystack", opacity: 0.8 } },
+    { selector: ".faded", style: { opacity: 0.12 } },
     { selector: ".hidden", style: { display: "none" } },
   ];
 }
@@ -389,24 +392,76 @@ function layout() {
   }).run();
 }
 
-/** Ζωγραφίζει το υπόμνημα των ομάδων· με κλικ σε μια ομάδα κρύβεται/εμφανίζεται στον γράφο. */
+/**
+ * Ζωγραφίζει το υπόμνημα των κατηγοριών. Κλικ σε μια κατηγορία: εστίαση σε αυτήν (βλ. focusGroup).
+ * Κλικ στο 👁: απόκρυψη/εμφάνιση της κατηγορίας στον γράφο.
+ */
 function renderLegend() {
   const counts = {};
   state.events.forEach(e => { const g = typeGroup(e.type); counts[g] = (counts[g] ?? 0) + 1; });
-  $("legend").innerHTML = Object.keys(GROUP_LABEL).filter(g => counts[g]).map(g => `
-    <label class="${state.hidden.has(g) ? "off" : ""}" data-group="${g}">
-      <input type="checkbox" ${state.hidden.has(g) ? "" : "checked"}>
+  $("legend").innerHTML = Object.keys(GROUP_LABEL).filter(g => counts[g]).map(g => {
+    const hidden = state.hidden.has(g);
+    return `<button type="button" class="chip ${hidden ? "off" : ""} ${state.focus === g ? "active" : ""}" data-group="${g}"
+        title="Κλικ: εστίαση στο «${GROUP_LABEL[g]}»">
       <span class="dot" style="background:${groupColor(g)}"></span>${GROUP_LABEL[g]} (${counts[g]})
-    </label>`).join("");
+      <span class="eye" data-eye="${g}" title="${hidden ? "Εμφάνιση" : "Απόκρυψη"} στον γράφο">${hidden ? "◌" : "👁"}</span>
+    </button>`;
+  }).join("");
 }
 
-$("legend").addEventListener("change", e => {
-  const g = e.target.closest("label").dataset.group;
-  if (e.target.checked) state.hidden.delete(g); else state.hidden.add(g);
-  applyHidden();
-  layout();
-  renderLegend();
+$("legend").addEventListener("click", e => {
+  const eye = e.target.closest("[data-eye]");
+  if (eye) {
+    const g = eye.dataset.eye;
+    if (state.hidden.has(g)) state.hidden.delete(g); else { state.hidden.add(g); if (state.focus === g) clearFocus(); }
+    applyHidden();
+    layout();
+    renderLegend();
+    return;
+  }
+  const chip = e.target.closest("[data-group]");
+  if (chip) focusGroup(chip.dataset.group);
 });
+
+/**
+ * Εστιάζει τον γράφο σε μια κατηγορία: φωτίζει τους κόμβους της και τη διαδρομή τους από τη ρίζα,
+ * σβήνει τους υπόλοιπους, κάνει zoom και δείχνει τη λίστα τους στο πλάι. Δεύτερο κλικ: επιστροφή.
+ * @param {string} group Η κατηγορία (π.χ. "people").
+ */
+function focusGroup(group) {
+  if (state.focus === group) { clearFocus(); return; }
+  state.focus = group;
+  if (state.hidden.has(group)) { state.hidden.delete(group); applyHidden(); }
+
+  const members = state.events.filter(e => typeGroup(e.type) === group);
+  const keep = new Set(members.flatMap(e => pathTo(e).map(x => String(x.id))));
+  state.cy.batch(() => {
+    state.cy.elements().addClass("faded");
+    state.cy.nodes().filter(n => keep.has(n.id())).removeClass("faded");
+    state.cy.edges().filter(x => keep.has(x.data("source")) && keep.has(x.data("target"))).removeClass("faded");
+  });
+  const nodes = state.cy.nodes().filter(n => members.some(m => String(m.id) === n.id()));
+  state.cy.elements().unselect();
+  nodes.select();
+  fitTo(state.cy.nodes().filter(n => keep.has(n.id())));
+
+  $("details").hidden = false;
+  $("details").innerHTML = `
+    <button class="ghost small close" type="button">✕</button>
+    <div><b>${esc(GROUP_LABEL[group])}</b> <span class="muted">(${members.length})</span></div>
+    <ul>${members.slice(0, 100).map(x => `<li><a data-node="${x.id}">${esc(typeLabel(x.type))}: ${esc(shortLabel(x))}</a> ${riskBadge(x.risk)}</li>`).join("")}</ul>
+    ${members.length > 100 ? `<div class="muted">… και ${members.length - 100} ακόμα (βλ. καρτέλα «Δεδομένα»).</div>` : ""}`;
+  renderLegend();
+}
+
+/** Βγαίνει από την εστίαση σε κατηγορία και δείχνει ξανά όλο τον γράφο. */
+function clearFocus() {
+  state.focus = null;
+  state.cy?.elements().removeClass("faded").unselect();
+  state.cy?.animate({ fit: { eles: state.cy.elements().not(".hidden"), padding: 30 } }, { duration: 300 });
+  $("details").hidden = true;
+  renderLegend();
+}
 
 /** Κρύβει στον γράφο τους κόμβους των ομάδων που απενεργοποίησε ο χρήστης. */
 function applyHidden() {
@@ -452,7 +507,7 @@ function showDetails(id) {
 }
 
 $("details").addEventListener("click", e => {
-  if (e.target.closest(".close")) { $("details").hidden = true; return; }
+  if (e.target.closest(".close")) { if (state.focus) clearFocus(); else $("details").hidden = true; return; }
   const a = e.target.closest("a[data-node]");
   if (a) focusNode(+a.dataset.node);
 });
@@ -504,7 +559,23 @@ function focusCorrelation(index) {
   applyHidden(); renderLegend();
   state.cy.elements().unselect();
   nodes.select();
-  state.cy.animate({ fit: { eles: nodes, padding: 80 } }, { duration: 300 });
+  fitTo(nodes);
+}
+
+/**
+ * Κάνει zoom ώστε να χωρούν οι κόμβοι που δίνονται, χωρίς να ξεπεράσει ένα λογικό μέγιστο:
+ * με 1-2 κόμβους το "fit" θα έκανε τόσο μεγάλο zoom που τα γράμματα θα γέμιζαν την οθόνη.
+ * @param {object} eles Οι κόμβοι (Cytoscape collection).
+ * @param {number} [maxZoom] Το μέγιστο zoom.
+ */
+function fitTo(eles, maxZoom = 1.3) {
+  if (!eles || eles.empty()) return;
+  state.cy.stop();
+  state.cy.fit(eles, 70);
+  if (state.cy.zoom() > maxZoom) {
+    state.cy.zoom(maxZoom);
+    state.cy.center(eles);
+  }
 }
 
 /** Ζωγραφίζει τις συσχετίσεις και τα ευρήματα (events με κίνδυνο), από τον υψηλότερο κίνδυνο. */

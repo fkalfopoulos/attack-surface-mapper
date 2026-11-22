@@ -79,9 +79,13 @@ details summary { cursor: pointer; color: var(--muted); font-size: 14px; }
 
 .graph-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .legend { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
-.legend label { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 99px; cursor: pointer; user-select: none; }
-.legend label.off { opacity: .4; }
-.legend input { display: none; }
+.legend .chip { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500; padding: 3px 4px 3px 9px;
+  border: 1px solid var(--border); border-radius: 99px; background: transparent; color: var(--text); cursor: pointer; user-select: none; }
+.legend .chip:hover { background: var(--soft); }
+.legend .chip.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.legend .chip.off { opacity: .45; }
+.legend .eye { padding: 0 6px; border-left: 1px solid var(--border); margin-left: 2px; }
+.legend .eye:hover { background: var(--border); border-radius: 0 99px 99px 0; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .graph-wrap { position: relative; }
 #cy { height: 68vh; min-height: 420px; border-radius: 8px; background: var(--soft); }
