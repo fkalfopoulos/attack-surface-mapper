@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="AttackSurfaceMapper.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AttackSurfaceMapper.Domain\AttackSurfaceMapper.Domain.csproj" />
+  </ItemGroup>
+</Project>

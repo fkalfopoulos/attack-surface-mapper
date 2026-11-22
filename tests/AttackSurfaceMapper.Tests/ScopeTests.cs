@@ -1,4 +1,4 @@
-using AttackSurfaceMapper.Engine;
+using AttackSurfaceMapper.Domain;
 
 namespace AttackSurfaceMapper.Tests;
 

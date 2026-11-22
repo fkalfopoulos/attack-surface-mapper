@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AttackSurfaceMapper.Domain/AttackSurfaceMapper.Domain.csproj" />
+    <Project Path="src/AttackSurfaceMapper.Application/AttackSurfaceMapper.Application.csproj" />
+    <Project Path="src/AttackSurfaceMapper.Infrastructure/AttackSurfaceMapper.Infrastructure.csproj" />
+    <Project Path="src/AttackSurfaceMapper.Api/AttackSurfaceMapper.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AttackSurfaceMapper.Tests/AttackSurfaceMapper.Tests.csproj" />
+  </Folder>
+</Solution>

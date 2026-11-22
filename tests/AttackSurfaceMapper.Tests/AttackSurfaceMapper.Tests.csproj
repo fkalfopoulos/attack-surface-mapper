@@ -1,9 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net11.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -19,7 +16,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\AttackSurfaceMapper.csproj" />
+    <ProjectReference Include="..\..\src\AttackSurfaceMapper.Domain\AttackSurfaceMapper.Domain.csproj" />
+    <ProjectReference Include="..\..\src\AttackSurfaceMapper.Application\AttackSurfaceMapper.Application.csproj" />
+    <ProjectReference Include="..\..\src\AttackSurfaceMapper.Infrastructure\AttackSurfaceMapper.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,6 +1,8 @@
-using AttackSurfaceMapper.Data;
-using AttackSurfaceMapper.Engine;
-using DnsClient;
+using AttackSurfaceMapper.Application.Abstractions;
+using AttackSurfaceMapper.Application.Engine;
+using AttackSurfaceMapper.Domain;
+using AttackSurfaceMapper.Infrastructure.Persistence;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AttackSurfaceMapper.Tests;
 
@@ -10,12 +12,12 @@ namespace AttackSurfaceMapper.Tests;
 public sealed class ScanEngineTests : IDisposable
 {
     readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"asm-test-{Guid.NewGuid():N}.db");
-    readonly Store _store;
+    readonly SqliteScanStore _store;
 
     /// <summary>Δημιουργεί καινούρια βάση σε προσωρινό αρχείο για κάθε test.</summary>
     public ScanEngineTests()
     {
-        _store = new Store(_dbPath);
+        _store = new SqliteScanStore(_dbPath);
         _store.Init();
     }
 
@@ -60,15 +62,6 @@ public sealed class ScanEngineTests : IDisposable
         }
     }
 
-    /// <summary>HTTP factory που αποτυγχάνει αν το χρησιμοποιήσει κάποιο module (τα tests δεν έχουν δίκτυο).</summary>
-    sealed class NoHttp : IHttpClientFactory
-    {
-        /// <summary>Πετά πάντα exception.</summary>
-        /// <param name="name">Το όνομα του client.</param>
-        /// <returns>Ποτέ.</returns>
-        public HttpClient CreateClient(string name) => throw new InvalidOperationException("Τα tests δεν έχουν δίκτυο.");
-    }
-
     /// <summary>Τρέχει ένα scan για το example.com με τα modules που δίνονται.</summary>
     /// <param name="modules">Τα modules.</param>
     /// <returns>Το id του scan.</returns>
@@ -76,7 +69,7 @@ public sealed class ScanEngineTests : IDisposable
     {
         var options = new ScanOptions("example.com", Footprint.Passive, [], Gitleaks: false);
         var scanId = _store.CreateScan(options.Target, "passive", "{}");
-        var run = new ScanRun(scanId, options, modules, _store, new LookupClient(), new NoHttp());
+        var run = new ScanRun(scanId, options, modules, _store, NullLogger.Instance);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await run.RunAsync(timeout.Token);
         return scanId;
@@ -169,7 +162,7 @@ public sealed class ScanEngineTests : IDisposable
         var slow = new SlowModule();
         var options = new ScanOptions("example.com", Footprint.Passive, [], false);
         var scanId = _store.CreateScan(options.Target, "passive", "{}");
-        var run = new ScanRun(scanId, options, [slow], _store, new LookupClient(), new NoHttp());
+        var run = new ScanRun(scanId, options, [slow], _store, NullLogger.Instance);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => run.RunAsync(cts.Token));

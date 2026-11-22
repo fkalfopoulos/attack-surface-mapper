@@ -1,3 +1,5 @@
+using AttackSurfaceMapper.Application.Services;
+
 namespace AttackSurfaceMapper.Tests;
 
 /// <summary>Tests για τον έλεγχο του στόχου που δίνει ο χρήστης.</summary>
@@ -15,7 +17,7 @@ public class ApiTests
     [InlineData("www.example.co.uk", "example.co.uk")]
     [InlineData("www.co.uk", "www.co.uk")]   // δεν αφαιρείται το "www." αν μένει μόνο η κατάληξη
     public void ParseTarget_ExtractsDomain(string raw, string expected) =>
-        Assert.Equal(expected, Api.ParseTarget(raw));
+        Assert.Equal(expected, ScanAppService.ParseTarget(raw));
 
     /// <summary>Ελέγχει ότι απορρίπτονται IP διευθύνσεις και άκυρα domains.</summary>
     /// <param name="raw">Άκυρος στόχος.</param>
@@ -26,5 +28,5 @@ public class ApiTests
     [InlineData("::1")]
     [InlineData("localhost")]
     [InlineData("not a domain")]
-    public void ParseTarget_RejectsInvalid(string? raw) => Assert.Null(Api.ParseTarget(raw));
+    public void ParseTarget_RejectsInvalid(string? raw) => Assert.Null(ScanAppService.ParseTarget(raw));
 }

@@ -1,5 +1,4 @@
-using AttackSurfaceMapper.Data;
-using AttackSurfaceMapper.Engine;
+using AttackSurfaceMapper.Domain;
 
 namespace AttackSurfaceMapper.Tests;
 

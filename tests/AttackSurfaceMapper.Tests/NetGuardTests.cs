@@ -1,5 +1,5 @@
 using System.Net;
-using AttackSurfaceMapper.Engine;
+using AttackSurfaceMapper.Infrastructure.Network;
 
 namespace AttackSurfaceMapper.Tests;
 
