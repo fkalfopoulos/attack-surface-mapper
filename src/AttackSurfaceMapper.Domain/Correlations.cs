@@ -71,6 +71,16 @@ public static class CorrelationEngine
     [
         new SecretsExposedRule(),
         new TakeoverRule(),
+        new PortCategoryRule(PortCategory.Database, "database_exposed", "Βάσεις δεδομένων εκτεθειμένες στο Internet", "high",
+            "Βάσεις δεδομένων και caches (MySQL, Redis, MongoDB, Elasticsearch…) δεν πρέπει ποτέ να είναι προσβάσιμες από το " +
+            "Internet: συχνά δέχονται σύνδεση χωρίς κωδικό ή γίνονται στόχος brute force. Κλείσε τις θύρες στο firewall."),
+        new PortCategoryRule(PortCategory.RemoteAccess, "remote_access_exposed", "Απομακρυσμένη πρόσβαση εκτεθειμένη", "high",
+            "Υπηρεσίες απομακρυσμένης πρόσβασης (RDP, VNC, Telnet, SSH) είναι από τους συχνότερους στόχους επιθέσεων " +
+            "(brute force, ransomware). Βάλ' τες πίσω από VPN ή περιόρισέ τες σε συγκεκριμένες IP.", minRisk: "medium"),
+        new PortCategoryRule(PortCategory.Management, "management_exposed", "Διαχειριστικές υπηρεσίες εκτεθειμένες", "high",
+            "APIs διαχείρισης (Docker, Kubernetes, LDAP, Kibana…) δίνουν συχνά πλήρη έλεγχο της υποδομής. " +
+            "Δεν πρέπει να είναι προσβάσιμα από το Internet."),
+        new ZoneTransferRule(),
         new BlocklistedRule(),
         new EmailSpoofingRule(),
         new DevTestExposedRule(),
@@ -132,6 +142,42 @@ sealed class TakeoverRule : ICorrelationRule
             $"{found.Count} subdomain(s) δείχνουν σε υπηρεσίες που δεν υπάρχουν. Όποιος δημιουργήσει ξανά το όνομα " +
             "στην υπηρεσία ελέγχει το subdomain. Σβήσε τα DNS records ή ξαναδημιούργησε τους πόρους.",
             found.Select(e => e.Id).ToList()));
+}
+
+/// <summary>Ανοιχτές θύρες μιας κατηγορίας (π.χ. βάσεις δεδομένων) με κίνδυνο τουλάχιστον <c>minRisk</c>.</summary>
+/// <param name="category">Η κατηγορία.</param>
+/// <param name="ruleId">Το id του κανόνα.</param>
+/// <param name="title">Ο τίτλος.</param>
+/// <param name="risk">Ο κίνδυνος του συμπεράσματος.</param>
+/// <param name="description">Η εξήγηση.</param>
+/// <param name="minRisk">Ο ελάχιστος κίνδυνος της θύρας για να μετρήσει (π.χ. το SSH είναι "low" και δεν μετρά από μόνο του).</param>
+sealed class PortCategoryRule(PortCategory category, string ruleId, string title, string risk, string description,
+    string minRisk = "high") : ICorrelationRule
+{
+    /// <inheritdoc/>
+    public Correlation? Evaluate(CorrelationInput input)
+    {
+        var min = Array.IndexOf(EventTypes.Risks, minRisk);
+        var found = input.OfType(EventTypes.TcpPortOpen)
+            .Where(e => PortCatalog.TryParse(e.Data, out var p) && p.Category == category
+                        && Array.IndexOf(EventTypes.Risks, p.Risk) >= min)
+            .ToList();
+        return found.Count == 0 ? null
+            : new Correlation(ruleId, title, risk, $"{found.Count} θύρα(ες): " + description, found.Select(e => e.Id).ToList());
+    }
+}
+
+/// <summary>Nameservers που δίνουν σε οποιονδήποτε ολόκληρη τη ζώνη DNS.</summary>
+sealed class ZoneTransferRule : ICorrelationRule
+{
+    /// <inheritdoc/>
+    public Correlation? Evaluate(CorrelationInput input)
+    {
+        var found = input.OfType(EventTypes.DnsIssue).Where(e => e.Data.StartsWith(DnsIssues.ZoneTransfer, StringComparison.Ordinal)).ToList();
+        return found.Count == 0 ? null : new Correlation("zone_transfer", "Zone transfer επιτρέπεται", "high",
+            "Οποιοσδήποτε μπορεί να κατεβάσει ολόκληρη τη ζώνη DNS: όλα τα hostnames, συμπεριλαμβανομένων εσωτερικών " +
+            "και ξεχασμένων. Περιόρισε το AXFR μόνο στους δευτερεύοντες nameservers σου.", found.Select(e => e.Id).ToList());
+    }
 }
 
 /// <summary>IPs ή hostnames του στόχου σε blocklists.</summary>

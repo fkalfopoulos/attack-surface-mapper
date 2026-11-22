@@ -143,14 +143,16 @@ async function showHome() {
 /** Ζωγραφίζει τη λίστα των modules, απενεργοποιώντας όσα είναι πάνω από το επιλεγμένο επίπεδο. */
 function renderModules() {
   const level = document.querySelector("input[name=level]:checked").value;
-  const allowed = m => level === "footprint" || m.level === "passive";
+  const rank = { passive: 0, footprint: 1, active: 2 };
+  const allowed = m => rank[m.level] <= rank[level];
   const previous = new Map([...document.querySelectorAll("#modules input")].map(i => [i.value, i.checked]));
   $("modules").innerHTML = MODULES.map(m => `
     <label class="module ${allowed(m) ? "" : "disabled"}">
       <input type="checkbox" value="${esc(m.name)}" ${allowed(m) ? "" : "disabled"} ${previous.get(m.name) ?? true ? "checked" : ""}>
-      <span><b>${esc(m.name)}</b> <span class="lvl">${m.level}</span><br>${esc(m.description)}</span>
+      <span><b>${esc(m.name)}</b> <span class="lvl ${m.level}">${m.level}</span><br>${esc(m.description)}</span>
     </label>`).join("");
-  $("authRow").hidden = level !== "footprint";
+  $("authRow").hidden = level === "passive";
+  $("confirmRow").hidden = level !== "active";
 }
 
 /** Ελέγχει αν τρέχει το Gitleaks Scanner και το δείχνει δίπλα στην επιλογή. */
@@ -169,7 +171,7 @@ async function renderHistory() {
   $("history").innerHTML = list.length ? list.map(({ scan: s, running }) => `
     <div class="hist" data-id="${s.id}">
       <div>
-        <b>${esc(s.target)}</b> <span class="lvl">${esc(s.level)}</span>
+        <b>${esc(s.target)}</b> <span class="lvl ${esc(s.level)}">${esc(s.level)}</span>
         <div class="muted" style="font-size:13px">#${s.id} · ${fmtDate(s.startedAt)} · ${s.eventCount} δεδομένα · ${s.issueCount} ευρήματα</div>
       </div>
       <span><span class="status ${running ? "running" : esc(s.status)}">${running ? "τρέχει" : statusLabel(s.status)}</span></span>
@@ -203,7 +205,8 @@ $("form").addEventListener("submit", async e => {
     const { id } = await startScan({
       target: $("target").value, level,
       modules: selected.length === boxes.length ? [] : selected,
-      gitleaks: $("gitleaks").checked, authorized: $("authorized").checked
+      gitleaks: $("gitleaks").checked, authorized: $("authorized").checked,
+      confirmTarget: level === "active" ? $("confirmTarget").value : null
     });
     navigate(`#/scan/${id}`);
   } catch (err) {
@@ -711,10 +714,17 @@ $("deleteBtn").onclick = async () => {
 
 $("rescanBtn").onclick = async () => {
   const s = state.scan;
-  const footprint = s.level === "footprint";
-  if (footprint && !confirm(`Footprint scan στο ${s.target}: επιβεβαιώνεις ότι έχεις άδεια;`)) return;
+  let confirmTarget = null;
+  if (s.level === "active") {
+    // Για active scan ο χρήστης ξαναγράφει το domain, όπως και στη φόρμα.
+    confirmTarget = prompt(`ACTIVE scan στο ${s.target} (port scan, DNS brute force).\nΓια επιβεβαίωση ότι έχεις άδεια, γράψε το domain:`);
+    if (confirmTarget === null) return;
+  } else if (s.level === "footprint" && !confirm(`Footprint scan στο ${s.target}: επιβεβαιώνεις ότι έχεις άδεια;`)) return;
   try {
-    const { id } = await startScan({ target: s.target, level: s.level, modules: [], gitleaks: false, authorized: footprint });
+    const { id } = await startScan({
+      target: s.target, level: s.level, modules: [], gitleaks: false,
+      authorized: s.level !== "passive", confirmTarget
+    });
     navigate(`#/scan/${id}`);
   } catch (err) { alert(err.message); }
 };

@@ -43,10 +43,19 @@ example.com ──dns_records──► MX, NS, SPF, DMARC, SaaS (Google Workspac
 | `ssl_cert` | footprint | Certificate: λήξη, hostname, εμπιστοσύνη, SANs |
 | `http_fingerprint` | footprint | Web server, CMS/frameworks/CDN, security headers, redirects |
 | `web_spider` | footprint | Σελίδες και **JavaScript**: secrets, emails, cloud buckets, σελίδες σύνδεσης |
+| `dns_bruteforce` | **active** | ~300 συνηθισμένα ονόματα subdomains, με ανίχνευση wildcard DNS |
+| `zone_transfer` | **active** | Ελέγχει αν οι nameservers δίνουν ολόκληρη τη ζώνη DNS (AXFR) |
+| `port_scan` | **active** | ~45 κρίσιμες θύρες TCP (βάσεις, RDP, SSH, Docker…) με banners |
+| `takeover_verify` | **active** | Επιβεβαίωση subdomain takeover με τα fingerprints κάθε υπηρεσίας |
 
 - **Passive**: μόνο δημόσιες πηγές τρίτων. Ο στόχος δεν βλέπει τίποτα.
 - **Footprint**: επιπλέον επισκέπτεται τα sites όπως ένας browser. Ζητά επιβεβαίωση ότι
   έχεις άδεια για τον στόχο.
+- **Active**: επιπλέον port scan, DNS brute force, zone transfer και επιβεβαίωση takeover.
+  Εκτός από την επιβεβαίωση άδειας, πρέπει να **ξαναγράψεις το domain**, και κάθε active scan
+  καταγράφεται στο log ως audit. **Χρησιμοποίησέ το μόνο σε συστήματα που σου ανήκουν ή με
+  γραπτή άδεια.** Για δοκιμές υπάρχουν στόχοι φτιαγμένοι γι' αυτό: `scanme.nmap.org` (port scan)
+  και `zonetransfer.me` (zone transfer).
 
 ## Εγκατάσταση και εκτέλεση
 
@@ -90,6 +99,10 @@ dotnet run --project src/AttackSurfaceMapper.Api
 | Πιθανό subdomain takeover | CNAME προς υπηρεσία που δεν υπάρχει πια |
 | Υποδομή σε blocklists | IP του στόχου σε Spamhaus/abuse.ch |
 | Εύκολο email spoofing | Ούτε αποτελεσματικό SPF ούτε DMARC |
+| Βάσεις δεδομένων εκτεθειμένες | MySQL, PostgreSQL, Redis, MongoDB, Elasticsearch… ανοιχτά στο Internet |
+| Απομακρυσμένη πρόσβαση εκτεθειμένη | RDP, VNC, Telnet ανοιχτά στο Internet |
+| Διαχειριστικές υπηρεσίες εκτεθειμένες | Docker API, Kubernetes, LDAP, Kibana… |
+| Zone transfer επιτρέπεται | Nameserver δίνει ολόκληρη τη ζώνη DNS |
 | Dev/test συστήματα στο Internet | `dev`, `staging`, `uat`… με δημόσια IP |
 | Εσωτερικές IP σε δημόσιο DNS | 10.x, 192.168.x κ.λπ. σε δημόσια records |
 | Προβλήματα certificates | Ληγμένα, μη έμπιστα ή λάθος certificates |
@@ -114,7 +127,7 @@ AttackSurfaceMapper.Api  ──►  AttackSurfaceMapper.Application  ──►  
 | --- | --- |
 | `src/AttackSurfaceMapper.Domain` | Τύποι events, scope, σύγκριση scans, κανόνες συσχέτισης, patterns για secrets και URLs: καθαρή λογική |
 | `src/AttackSurfaceMapper.Application` | Η μηχανή των scans (`ScanRun`, `ScanManager`), το `IModule`, use cases (`ScanAppService`), interfaces |
-| `src/AttackSurfaceMapper.Infrastructure` | Τα 11 modules, SQLite, προστασία SSRF (`NetGuard`), HTTP clients, γέφυρα προς το Gitleaks Scanner |
+| `src/AttackSurfaceMapper.Infrastructure` | Τα 15 modules (τα ενεργά στο `Modules/Active/`), SQLite, προστασία SSRF (`NetGuard`), HTTP clients, γέφυρα προς το Gitleaks Scanner |
 | `src/AttackSurfaceMapper.Api` | HTTP endpoints, UI (`wwwroot/`, γράφος με [Cytoscape.js](https://js.cytoscape.org)), logging |
 | `tests/AttackSurfaceMapper.Tests` | Unit tests (xUnit) |
 
@@ -151,5 +164,6 @@ dotnet test AttackSurfaceMapper.slnx
 
 ## Επόμενα βήματα
 
-- **Φάση 3**: ενεργά modules (DNS brute force, port scan, έλεγχος subdomain takeover), μόνο με
-  ρητή εξουσιοδότηση.
+- Ενσωμάτωση εξωτερικών εργαλείων (nuclei, nmap service detection), με τον ίδιο τρόπο που
+  γίνεται η σύνδεση με το Gitleaks Scanner.
+- Προγραμματισμένα scans και ειδοποιήσεις όταν εμφανίζεται κάτι νέο.

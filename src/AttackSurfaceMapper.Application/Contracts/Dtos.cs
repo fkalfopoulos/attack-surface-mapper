@@ -4,11 +4,13 @@ namespace AttackSurfaceMapper.Application.Contracts;
 
 /// <summary>Το αίτημα για νέο scan.</summary>
 /// <param name="Target">Το domain (δέχεται και URL, από το οποίο κρατά μόνο το host).</param>
-/// <param name="Level">"passive" ή "footprint".</param>
+/// <param name="Level">"passive", "footprint" ή "active".</param>
 /// <param name="Modules">Τα modules που θα τρέξουν· κενό σημαίνει όλα του επιπέδου.</param>
 /// <param name="Gitleaks">Αν τα repos θα σκαναριστούν με το Gitleaks Scanner.</param>
-/// <param name="Authorized">Επιβεβαίωση του χρήστη ότι έχει άδεια για footprint scan.</param>
-public record StartScanRequest(string? Target, string? Level, string[]? Modules, bool Gitleaks, bool Authorized);
+/// <param name="Authorized">Επιβεβαίωση του χρήστη ότι έχει άδεια για footprint/active scan.</param>
+/// <param name="ConfirmTarget">Για active scan: ο χρήστης ξαναγράφει το domain, για να μη γίνει κατά λάθος σε άλλο στόχο.</param>
+public record StartScanRequest(string? Target, string? Level, string[]? Modules, bool Gitleaks, bool Authorized,
+    string? ConfirmTarget = null);
 
 /// <summary>Περιγραφή ενός module για το UI.</summary>
 /// <param name="Name">Το όνομα.</param>

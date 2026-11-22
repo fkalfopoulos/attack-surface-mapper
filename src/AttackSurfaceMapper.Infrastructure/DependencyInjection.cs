@@ -1,5 +1,6 @@
 using AttackSurfaceMapper.Application.Abstractions;
 using AttackSurfaceMapper.Infrastructure.Modules;
+using AttackSurfaceMapper.Infrastructure.Modules.Active;
 using AttackSurfaceMapper.Infrastructure.Network;
 using AttackSurfaceMapper.Infrastructure.Persistence;
 using DnsClient;
@@ -51,6 +52,13 @@ public static class DependencyInjection
         services.AddSingleton<IModule, SslCertModule>();
         services.AddSingleton<IModule, HttpFingerprintModule>();
         services.AddSingleton<IModule, WebSpiderModule>();
+
+        // Φάση 3: ενεργά modules (τρέχουν μόνο σε active scan, με ρητή εξουσιοδότηση).
+        services.AddSingleton(PortScanner.Public);
+        services.AddSingleton<IModule, DnsBruteforceModule>();
+        services.AddSingleton<IModule, ZoneTransferModule>();
+        services.AddSingleton<IModule, PortScanModule>();
+        services.AddSingleton<IModule, TakeoverVerifyModule>();
 
         services.AddSingleton<IGitleaksScannerClient, GitleaksScannerClient>();
         AddHttpClients(services, options);

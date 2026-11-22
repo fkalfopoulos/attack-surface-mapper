@@ -37,11 +37,20 @@
             <input type="radio" name="level" value="footprint">
             <span><b>Footprint</b>: επιπλέον επισκέπτεται τα sites όπως ένας browser (TLS certificates, headers, τεχνολογίες). Φαίνεται στα logs του στόχου.</span>
           </label>
+          <label class="level danger">
+            <input type="radio" name="level" value="active">
+            <span><b>Active</b>: επιπλέον port scan, DNS brute force, zone transfer και επιβεβαίωση takeover. <b>Μόνο σε συστήματα που σου ανήκουν ή με γραπτή άδεια:</b> χωρίς άδεια μπορεί να είναι παράνομο.</span>
+          </label>
         </fieldset>
 
         <label class="auth" id="authRow" hidden>
           <input type="checkbox" id="authorized">
           <span>Επιβεβαιώνω ότι ο στόχος είναι δικός μου ή ότι έχω άδεια να τον σκανάρω.</span>
+        </label>
+
+        <label class="confirm" id="confirmRow" hidden>
+          <span>Για active scan, ξαναγράψε το domain του στόχου:</span>
+          <input type="text" id="confirmTarget" autocomplete="off" spellcheck="false">
         </label>
 
         <label class="opt">

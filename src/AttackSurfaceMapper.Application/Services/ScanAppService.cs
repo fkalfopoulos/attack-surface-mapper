@@ -44,25 +44,45 @@ public sealed class ScanAppService(
         if (target is null)
             return Result<long>.Fail(ErrorKind.Validation, "Δώσε ένα έγκυρο domain, π.χ. example.com (όχι IP).");
 
-        Footprint? level = req.Level?.ToLowerInvariant() switch
-        {
-            "footprint" => Footprint.Footprint,
-            "passive" or null => Footprint.Passive,
-            _ => null
-        };
-        if (level is null) return Result<long>.Fail(ErrorKind.Validation, "Το επίπεδο πρέπει να είναι passive ή footprint.");
-        if (level >= Footprint.Footprint && !req.Authorized)
-            return Result<long>.Fail(ErrorKind.Validation, "Το footprint scan συνδέεται στους servers του στόχου. Επιβεβαίωσε ότι έχεις άδεια.");
+        var (level, error) = CheckAuthorization(req, target);
+        if (error is not null) return Result<long>.Fail(ErrorKind.Validation, error);
 
         try
         {
-            return Result<long>.Ok(manager.Start(new ScanOptions(target, level.Value, req.Modules ?? [], req.Gitleaks)));
+            var id = manager.Start(new ScanOptions(target, level, req.Modules ?? [], req.Gitleaks));
+            if (level == Footprint.Active)
+                logger.LogWarning("Audit: ACTIVE scan #{ScanId} στο {Target} (ο χρήστης επιβεβαίωσε την άδεια)", id, target);
+            return Result<long>.Ok(id);
         }
         catch (InvalidOperationException ex)
         {
             logger.LogWarning("Απορρίφθηκε scan για {Target}: {Reason}", target, ex.Message);
             return Result<long>.Fail(ErrorKind.Conflict, ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Ελέγχει το επίπεδο του scan και την εξουσιοδότηση: το footprint θέλει επιβεβαίωση άδειας,
+    /// και το active επιπλέον να ξαναγράψει ο χρήστης το domain.
+    /// </summary>
+    /// <param name="req">Το αίτημα.</param>
+    /// <param name="target">Το κανονικοποιημένο domain.</param>
+    /// <returns>Το επίπεδο, και μήνυμα σφάλματος αν το αίτημα δεν επιτρέπεται.</returns>
+    public static (Footprint Level, string? Error) CheckAuthorization(StartScanRequest req, string target)
+    {
+        Footprint? level = req.Level?.ToLowerInvariant() switch
+        {
+            "active" => Footprint.Active,
+            "footprint" => Footprint.Footprint,
+            "passive" or null => Footprint.Passive,
+            _ => null
+        };
+        if (level is null) return (Footprint.Passive, "Το επίπεδο πρέπει να είναι passive, footprint ή active.");
+        if (level >= Footprint.Footprint && !req.Authorized)
+            return (level.Value, "Αυτό το scan συνδέεται στους servers του στόχου. Επιβεβαίωσε ότι έχεις άδεια.");
+        if (level == Footprint.Active && ParseTarget(req.ConfirmTarget) != target)
+            return (level.Value, $"Για active scan ξαναγράψε το domain ({target}) στο πεδίο επιβεβαίωσης.");
+        return (level.Value, null);
     }
 
     /// <summary>

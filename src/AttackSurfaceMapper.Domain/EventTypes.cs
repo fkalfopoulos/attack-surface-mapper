@@ -53,6 +53,8 @@ public static class EventTypes
     public const string SecretInContent = "SECRET_IN_CONTENT";
     public const string HistoricUrl = "HISTORIC_URL";
     public const string Malicious = "MALICIOUS_ASSET";
+    // Φάση 3
+    public const string TcpPortOpen = "TCP_PORT_OPEN";
 #pragma warning restore CS1591
 
     /// <summary>Πληροφορίες εμφάνισης ενός τύπου event στο UI.</summary>
@@ -104,6 +106,7 @@ public static class EventTypes
         [SecretInContent] = new("Secret σε σελίδα / JavaScript", "code"),
         [HistoricUrl] = new("Ευαίσθητο παλιό URL (Wayback)", "web"),
         [Malicious] = new("Σε blocklist", "network"),
+        [TcpPortOpen] = new("Ανοιχτή θύρα TCP", "network"),
     };
 
     /// <summary>Τα επίπεδα κινδύνου ενός ευρήματος, από το χαμηλότερο στο υψηλότερο.</summary>

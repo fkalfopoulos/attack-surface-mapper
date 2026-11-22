@@ -18,6 +18,9 @@ public static class DnsIssues
     /// <summary>Υπάρχουν πολλαπλά SPF records (άκυρο κατά το RFC 7208).</summary>
     public const string MultipleSpf = "Πολλαπλά SPF records: σύμφωνα με το RFC 7208 το SPF θεωρείται άκυρο";
 
+    /// <summary>Αρχή του μηνύματος όταν ένας nameserver επιτρέπει zone transfer (ακολουθεί το όνομά του).</summary>
+    public const string ZoneTransfer = "Επιτρέπεται zone transfer (AXFR) από";
+
     /// <summary>Το DMARC μόνο παρακολουθεί (p=none).</summary>
     public const string DmarcNone = "DMARC με p=none: μόνο παρακολούθηση, τα πλαστά emails παραδίδονται";
 }
